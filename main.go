@@ -36,23 +36,32 @@ type ChatServer struct {
 	Input chan Message
 }
 
-func userEnter(cs *ChatServer, userJoined User) {
+func userEnter(cs *ChatServer, userJoined User, bot *User) {
 	cs.Input <- Message{
-		User: &userJoined,
+		//User: &userJoined,
+		User: bot,
 		Text: fmt.Sprintf("%s has joined\n", userJoined.Username),
 		When: fmt.Sprintf("%s ", time.Now()),
 	}
 }
 
-func userExit(cs *ChatServer, userLeft User) {
+func userExit(cs *ChatServer, userLeft User, bot *User) {
 	cs.Input <- Message{
-		User: &userLeft,
+		//User: &userLeft,
+		User: bot,
 		Text: fmt.Sprintf("%s has left", userLeft.Username),
 		When: fmt.Sprintf("%s ", time.Now()),
 	}
 }
 
 func (chatServer *ChatServer) start() {
+
+	//create a special user that announces the ins and outs of the
+	chatBot := &User{
+		Username: "ChatBot",
+		Output:   make(chan Message),
+	}
+
 	for {
 		select {
 
@@ -60,13 +69,13 @@ func (chatServer *ChatServer) start() {
 
 			chatServer.Users[userJoined.Username] = userJoined
 
-			go userEnter(chatServer, userJoined)
+			go userEnter(chatServer, userJoined, chatBot)
 
 		case userLeft := <-chatServer.Leave:
 
 			delete(chatServer.Users, userLeft.Username)
 
-			go userExit(chatServer, userLeft)
+			go userExit(chatServer, userLeft, chatBot)
 
 		case messages := <-chatServer.Input:
 			for _, users := range chatServer.Users {
@@ -77,9 +86,9 @@ func (chatServer *ChatServer) start() {
 	}
 }
 
-//user
+//handlerConnection is used when user types "telnet localhost 9000" to establish connection
 func handlerConnection(connection net.Conn, chatServer *ChatServer) {
-	io.WriteString(connection, "Enter your username\n")
+	io.WriteString(connection, "Enter your username: ")
 
 	scanner := bufio.NewScanner(connection)
 	scanner.Scan()
@@ -92,6 +101,7 @@ func handlerConnection(connection net.Conn, chatServer *ChatServer) {
 	}
 
 	chatServer.Join <- user
+
 	defer func() {
 		chatServer.Leave <- user
 	}()
@@ -110,9 +120,10 @@ func handlerConnection(connection net.Conn, chatServer *ChatServer) {
 		}
 	}()
 
-	//Write all the outputs
+	//user.Output is a channel of Message
 	for message := range user.Output {
-		io.WriteString(connection, message.When+" "+message.User.Username+": "+message.Text)
+		io.WriteString(connection, message.When+" "+message.User.Username+": "+message.Text+"\n")
+
 	}
 }
 
