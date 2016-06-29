@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const timeFormat = "3:01PM"
+
 //User container user information
 type User struct {
 	Username string
@@ -37,20 +39,20 @@ type ChatServer struct {
 }
 
 func userEnter(cs *ChatServer, userJoined User, bot *User) {
+
 	cs.Input <- Message{
-		//User: &userJoined,
 		User: bot,
 		Text: fmt.Sprintf("%s has joined\n", userJoined.Username),
-		When: fmt.Sprintf("%s ", time.Now()),
+		When: fmt.Sprintf("%s ", time.Now().Format(timeFormat)),
 	}
 }
 
 func userExit(cs *ChatServer, userLeft User, bot *User) {
+
 	cs.Input <- Message{
-		//User: &userLeft,
 		User: bot,
 		Text: fmt.Sprintf("%s has left", userLeft.Username),
-		When: fmt.Sprintf("%s ", time.Now()),
+		When: fmt.Sprintf("%s ", time.Now().Format(timeFormat)),
 	}
 }
 
@@ -111,17 +113,18 @@ func handlerConnection(connection net.Conn, chatServer *ChatServer) {
 		scan := bufio.NewScanner(connection)
 		for scan.Scan() {
 			ln := scan.Text()
-			time := time.Now()
+			//time := time.Now()
 			chatServer.Input <- Message{
 				User: &user,
 				Text: ln,
-				When: time.String(),
+				When: time.Now().Format(timeFormat),
 			}
 		}
 	}()
 
 	//user.Output is a channel of Message
 	for message := range user.Output {
+
 		io.WriteString(connection, message.When+" "+message.User.Username+": "+message.Text+"\n")
 
 	}
